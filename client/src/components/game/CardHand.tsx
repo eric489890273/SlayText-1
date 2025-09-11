@@ -97,19 +97,19 @@ export function CardHand({ hand, gameState, onPlayCard, onSelectCard }: CardHand
       </h3>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {hand.map((card) => {
+        {hand.map((card, index) => {
           const canPlay = gameState.player.energy >= card.cost && gameState.phase === "COMBAT";
           
           return (
             <div 
-              key={card.id}
+              key={`${card.id}-${index}`}
               className={`card ${getCardTypeClass(card.type)} bg-secondary rounded-lg p-4 transition-all duration-200 ${
                 canPlay 
                   ? "cursor-pointer hover:bg-secondary/80" 
                   : "opacity-50 cursor-not-allowed"
               }`}
               onClick={() => canPlay && onPlayCard(card.id)}
-              data-testid={`card-${card.id}`}
+              data-testid={`card-${card.id}-${index}`}
             >
               <div className="flex justify-between items-start mb-2">
                 <div className="energy-cost w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold">

@@ -38,7 +38,7 @@ export default function Game() {
   });
 
   // Get game state query
-  const { data: gameSession, isLoading } = useQuery({
+  const { data: gameSession, isLoading } = useQuery<GameSession>({
     queryKey: ["/api/game", gameId],
     enabled: !!gameId,
     refetchInterval: false,
@@ -144,7 +144,7 @@ export default function Game() {
     );
   }
 
-  const gameState = gameSession.gameState as GameState;
+  const gameState = gameSession?.gameState as GameState;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
