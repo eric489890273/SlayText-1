@@ -5,9 +5,10 @@ interface CardHandProps {
   gameState: GameState;
   onPlayCard: (cardId: string) => void;
   onSelectCard?: (cardId: string) => void;
+  onNextLevel?: () => void;
 }
 
-export function CardHand({ hand, gameState, onPlayCard, onSelectCard }: CardHandProps) {
+export function CardHand({ hand, gameState, onPlayCard, onSelectCard, onNextLevel }: CardHandProps) {
   const getCardTypeClass = (type: string) => {
     switch (type) {
       case "ATTACK":
@@ -47,10 +48,14 @@ export function CardHand({ hand, gameState, onPlayCard, onSelectCard }: CardHand
     }
   };
 
-  if (gameState.phase === "VICTORY" && gameState.availableCards && onSelectCard) {
+  if ((gameState.phase === "VICTORY" || gameState.phase === "LEVEL_COMPLETE") && gameState.availableCards && onSelectCard) {
+    const title = gameState.phase === "VICTORY" 
+      ? "🎉 FINAL VICTORY! Choose a card to add to your deck:" 
+      : `🎉 Level ${gameState.currentLevel} Complete! Choose a card to add to your deck:`;
+    
     return (
       <div className="mt-8 bg-card rounded-lg p-6 border border-border">
-        <h3 className="font-semibold mb-4 text-primary">🎉 VICTORY! Choose a card to add to your deck:</h3>
+        <h3 className="font-semibold mb-4 text-primary">{title}</h3>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {gameState.availableCards.map((card) => (
@@ -77,6 +82,18 @@ export function CardHand({ hand, gameState, onPlayCard, onSelectCard }: CardHand
             </div>
           ))}
         </div>
+        
+        {gameState.phase === "LEVEL_COMPLETE" && onNextLevel && (
+          <div className="mt-6 text-center">
+            <button 
+              className="px-6 py-3 bg-primary text-primary-foreground rounded font-mono text-lg hover:bg-primary/90 transition-colors"
+              onClick={onNextLevel}
+              data-testid="button-next-level"
+            >
+              Enter Next Level →
+            </button>
+          </div>
+        )}
       </div>
     );
   }

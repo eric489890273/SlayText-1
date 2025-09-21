@@ -9,7 +9,7 @@ export type CardType = z.infer<typeof CardType>;
 export const EnemyAction = z.enum(['ATTACK', 'DEFEND', 'CHARGE', 'SPECIAL']);
 export type EnemyAction = z.infer<typeof EnemyAction>;
 
-export const GamePhase = z.enum(['COMBAT', 'VICTORY', 'DEFEAT', 'CARD_SELECTION']);
+export const GamePhase = z.enum(['COMBAT', 'VICTORY', 'DEFEAT', 'CARD_SELECTION', 'LEVEL_COMPLETE']);
 export type GamePhase = z.infer<typeof GamePhase>;
 
 export const Card = z.object({
@@ -41,7 +41,23 @@ export const Player = z.object({
 });
 export type Player = z.infer<typeof Player>;
 
+export const EnemyType = z.object({
+  id: z.string(),
+  name: z.string(),
+  maxHealth: z.number(),
+  actions: z.array(z.object({
+    action: EnemyAction,
+    description: z.string(),
+    damage: z.number().optional(),
+    armor: z.number().optional(),
+    weight: z.number(), // 权重，用于随机选择
+  })),
+  asciiArt: z.string(),
+});
+export type EnemyType = z.infer<typeof EnemyType>;
+
 export const Enemy = z.object({
+  typeId: z.string(),
   name: z.string(),
   health: z.number(),
   maxHealth: z.number(),
@@ -63,6 +79,9 @@ export const GameState = z.object({
   turn: z.number(),
   logs: z.array(z.string()),
   availableCards: z.array(Card).optional(),
+  currentLevel: z.number().default(1),
+  maxLevel: z.number().default(3),
+  levelComplete: z.boolean().default(false),
 });
 export type GameState = z.infer<typeof GameState>;
 
@@ -82,6 +101,11 @@ export const SelectCardRequest = z.object({
   cardId: z.string(),
 });
 export type SelectCardRequest = z.infer<typeof SelectCardRequest>;
+
+export const NextLevelRequest = z.object({
+  gameId: z.string(),
+});
+export type NextLevelRequest = z.infer<typeof NextLevelRequest>;
 
 // Game session storage (in-memory)
 export const gameSessions = pgTable("game_sessions", {

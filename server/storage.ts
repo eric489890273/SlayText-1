@@ -1,4 +1,4 @@
-import { type GameSession, type InsertGameSession, type GameState, type Card, type Player, type Enemy, type CardType } from "@shared/schema";
+import { type GameSession, type InsertGameSession, type GameState, type Card, type Player, type Enemy, type CardType, type EnemyType } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -99,6 +99,70 @@ export const DEFAULT_CARDS: Card[] = [
   },
 ];
 
+export const ENEMY_TYPES: EnemyType[] = [
+  {
+    id: "cultist",
+    name: "Cultist",
+    maxHealth: 48,
+    actions: [
+      { action: "ATTACK", description: "⚔️ ATTACK - Will deal 12 damage", damage: 12, weight: 3 },
+      { action: "DEFEND", description: "🛡️ DEFEND - Will gain 8 armor", armor: 8, weight: 2 },
+      { action: "CHARGE", description: "⚡ CHARGE - Building up power...", weight: 1 },
+    ],
+    asciiArt: `     /\\   /\\
+    (  o.o  )
+     > ^ <
+    /|   |\\
+   / |   | \\
+  /  |___|  \\
+ |   /---\\   |
+ |  | ಠ_ಠ |  |
+  \\ |_____|  /
+   \\|     | /
+    |_____|`,
+  },
+  {
+    id: "spider",
+    name: "Giant Spider",
+    maxHealth: 65,
+    actions: [
+      { action: "ATTACK", description: "🕷️ BITE - Will deal 8 damage and poison", damage: 8, weight: 3 },
+      { action: "SPECIAL", description: "🕸️ WEB - Will reduce your energy next turn", weight: 2 },
+      { action: "ATTACK", description: "⚔️ LEAP ATTACK - Will deal 15 damage", damage: 15, weight: 2 },
+    ],
+    asciiArt: `    /\\   /\\   /\\
+   (  o ) ( o  )
+    \\  \\_/  /
+     ) --- (
+    /  ___  \\
+   |  /___\\  |
+    \\ \\___/ /
+     \\     /
+      |___|`,
+  },
+  {
+    id: "elite_guard",
+    name: "Elite Guard",
+    maxHealth: 85,
+    actions: [
+      { action: "ATTACK", description: "⚔️ SWORD SLASH - Will deal 16 damage", damage: 16, weight: 3 },
+      { action: "DEFEND", description: "🛡️ SHIELD UP - Will gain 12 armor", armor: 12, weight: 2 },
+      { action: "SPECIAL", description: "💪 POWER UP - Will gain strength", weight: 2 },
+      { action: "ATTACK", description: "⚡ HEAVY STRIKE - Will deal 22 damage", damage: 22, weight: 1 },
+    ],
+    asciiArt: `     [===]
+     |[o]|
+   ___|||___
+  |  |||  |
+  |  |||  |
+  |  /|\\  |
+  | / | \\ |
+  |/  |  \\|
+     /|\\
+    / | \\`,
+  },
+];
+
 export const CARD_REWARDS: Card[] = [
   {
     id: "cleave",
@@ -127,6 +191,36 @@ export const CARD_REWARDS: Card[] = [
   },
 ];
 
+export function createEnemyFromType(enemyType: EnemyType): Enemy {
+  // 选择一个随机行动
+  const randomAction = getRandomEnemyAction(enemyType);
+  
+  return {
+    typeId: enemyType.id,
+    name: enemyType.name,
+    health: enemyType.maxHealth,
+    maxHealth: enemyType.maxHealth,
+    armor: 0,
+    nextAction: randomAction.action,
+    nextActionDescription: randomAction.description,
+    statusEffects: [],
+  };
+}
+
+export function getRandomEnemyAction(enemyType: EnemyType) {
+  const totalWeight = enemyType.actions.reduce((sum, action) => sum + action.weight, 0);
+  let random = Math.random() * totalWeight;
+  
+  for (const action of enemyType.actions) {
+    random -= action.weight;
+    if (random <= 0) {
+      return action;
+    }
+  }
+  
+  return enemyType.actions[0]; // fallback
+}
+
 export function createInitialGameState(): GameState {
   const startingDeck = [
     ...Array(5).fill(DEFAULT_CARDS[0]), // 5 Strikes
@@ -136,6 +230,9 @@ export function createInitialGameState(): GameState {
 
   const shuffledDeck = shuffleArray([...startingDeck]);
   const hand = shuffledDeck.splice(0, 5);
+
+  const enemyType = ENEMY_TYPES[0]; // 开始时使用第一个敌人类型
+  const enemy = createEnemyFromType(enemyType);
 
   return {
     id: randomUUID(),
@@ -147,21 +244,16 @@ export function createInitialGameState(): GameState {
       armor: 0,
       statusEffects: [],
     },
-    enemy: {
-      name: "Cultist",
-      health: 48,
-      maxHealth: 48,
-      armor: 0,
-      nextAction: "ATTACK",
-      nextActionDescription: "⚔️ ATTACK - Will deal 12 damage",
-      statusEffects: [],
-    },
+    enemy,
     hand,
     deck: shuffledDeck,
     discardPile: [],
     phase: "COMBAT",
     turn: 1,
-    logs: ["Combat begins! Defeat the Cultist to proceed."],
+    logs: [`Level 1/3 - Combat begins! Defeat the ${enemy.name} to proceed.`],
+    currentLevel: 1,
+    maxLevel: 3,
+    levelComplete: false,
   };
 }
 
@@ -174,13 +266,21 @@ export function shuffleArray<T>(array: T[]): T[] {
   return newArray;
 }
 
-export function getEnemyAction(): { action: string; description: string } {
-  const actions = [
-    { action: "ATTACK", description: "⚔️ ATTACK - Will deal 12 damage" },
-    { action: "DEFEND", description: "🛡️ DEFEND - Will gain 8 armor" },
-    { action: "CHARGE", description: "⚡ CHARGE - Building up power..." },
-    { action: "ATTACK", description: "⚔️ HEAVY ATTACK - Will deal 18 damage" },
-  ];
+export function getEnemyActionForLevel(level: number): { action: string; description: string; damage?: number; armor?: number } {
+  const enemyTypeIndex = Math.min(level - 1, ENEMY_TYPES.length - 1);
+  const enemyType = ENEMY_TYPES[enemyTypeIndex];
+  const randomAction = getRandomEnemyAction(enemyType);
   
-  return actions[Math.floor(Math.random() * actions.length)];
+  return {
+    action: randomAction.action,
+    description: randomAction.description,
+    damage: randomAction.damage,
+    armor: randomAction.armor,
+  };
+}
+
+export function createEnemyForLevel(level: number): Enemy {
+  const enemyTypeIndex = Math.min(level - 1, ENEMY_TYPES.length - 1);
+  const enemyType = ENEMY_TYPES[enemyTypeIndex];
+  return createEnemyFromType(enemyType);
 }

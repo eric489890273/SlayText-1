@@ -4,6 +4,39 @@ interface EnemyAreaProps {
   enemy: Enemy;
 }
 
+const ENEMY_ASCII_ART: Record<string, string> = {
+  cultist: `     /\\   /\\
+    (  o.o  )
+     > ^ <
+    /|   |\\
+   / |   | \\
+  /  |___|  \\
+ |   /---\\   |
+ |  | ಠ_ಠ |  |
+  \\ |_____|  /
+   \\|     | /
+    |_____|`,
+  spider: `    /\\   /\\   /\\
+   (  o ) ( o  )
+    \\  \\_/  /
+     ) --- (
+    /  ___  \\
+   |  /___\\  |
+    \\ \\___/ /
+     \\     /
+      |___|`,
+  elite_guard: `     [===]
+     |[o]|
+   ___|||___
+  |  |||  |
+  |  |||  |
+  |  /|\\  |
+  | / | \\ |
+  |/  |  \\|
+     /|\\
+    / | \\`
+};
+
 export function EnemyArea({ enemy }: EnemyAreaProps) {
   const healthPercentage = (enemy.health / enemy.maxHealth) * 100;
 
@@ -17,17 +50,7 @@ export function EnemyArea({ enemy }: EnemyAreaProps) {
         {/* Enemy ASCII Art */}
         <div className="bg-secondary rounded-lg p-4">
           <div className="ascii-art text-destructive text-center text-sm">
-{`     /\\   /\\
-    (  o.o  )
-     > ^ <
-    /|   |\\
-   / |   | \\
-  /  |___|  \\
- |   /---\\   |
- |  | ಠ_ಠ |  |
-  \\ |_____|  /
-   \\|     | /
-    |_____|`}
+            {ENEMY_ASCII_ART[enemy.typeId] || ENEMY_ASCII_ART.cultist}
           </div>
         </div>
 

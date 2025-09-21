@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage, createInitialGameState, shuffleArray, getEnemyAction, DEFAULT_CARDS, CARD_REWARDS } from "./storage";
-import { PlayCardRequest, EndTurnRequest, SelectCardRequest, type GameState, type Card } from "@shared/schema";
+import { storage, createInitialGameState, shuffleArray, getEnemyActionForLevel, createEnemyForLevel, ENEMY_TYPES, DEFAULT_CARDS, CARD_REWARDS } from "./storage";
+import { PlayCardRequest, EndTurnRequest, SelectCardRequest, NextLevelRequest, type GameState, type Card } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -107,9 +107,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if enemy is defeated
       if (gameState.enemy.health <= 0) {
-        gameState.phase = "VICTORY";
+        if (gameState.currentLevel >= gameState.maxLevel) {
+          gameState.phase = "VICTORY";
+          gameState.logs.push("🎉 All levels completed! You have mastered the spire!");
+        } else {
+          gameState.phase = "LEVEL_COMPLETE";
+          gameState.levelComplete = true;
+          gameState.logs.push(`Level ${gameState.currentLevel} complete! Choose a card to add to your deck.`);
+        }
         gameState.availableCards = shuffleArray([...CARD_REWARDS]).slice(0, 3);
-        gameState.logs.push("Victory! Choose a card to add to your deck.");
       }
 
       const updatedSession = await storage.updateGameSession(gameId, gameState);
@@ -156,21 +162,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (gameState.enemy.health > 0) {
         const action = gameState.enemy.nextAction;
         
+        // Get current enemy action details
+        const currentAction = getEnemyActionForLevel(gameState.currentLevel);
+        const actionData = ENEMY_TYPES[Math.min(gameState.currentLevel - 1, ENEMY_TYPES.length - 1)]
+          .actions.find(a => a.action === action);
+        
         switch (action) {
           case "ATTACK":
-            const damage = Math.max(0, 12 - gameState.player.armor);
+            const attackDamage = actionData?.damage || 12;
+            const damage = Math.max(0, attackDamage - gameState.player.armor);
             gameState.player.health -= damage;
-            gameState.player.armor = Math.max(0, gameState.player.armor - 12);
+            gameState.player.armor = Math.max(0, gameState.player.armor - attackDamage);
             logs.push(`${gameState.enemy.name} attacks for ${damage} damage`);
             break;
             
           case "DEFEND":
-            gameState.enemy.armor += 8;
-            logs.push(`${gameState.enemy.name} gains 8 armor`);
+            const armorGain = actionData?.armor || 8;
+            gameState.enemy.armor += armorGain;
+            logs.push(`${gameState.enemy.name} gains ${armorGain} armor`);
             break;
             
           case "CHARGE":
             logs.push(`${gameState.enemy.name} is charging up...`);
+            break;
+            
+          case "SPECIAL":
+            logs.push(`${gameState.enemy.name} uses a special ability!`);
+            // 特殊能力的具体效果可以根据敌人类型定制
             break;
         }
 
@@ -187,7 +205,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         // Set next enemy action
-        const nextAction = getEnemyAction();
+        const nextAction = getEnemyActionForLevel(gameState.currentLevel);
         gameState.enemy.nextAction = nextAction.action as any;
         gameState.enemy.nextActionDescription = nextAction.description;
       }
@@ -263,8 +281,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clear available cards
       gameState.availableCards = undefined;
       
-      // End the game demo
-      gameState.logs.push("Demo complete! Refresh to play again.");
+      // Check if this was the final level
+      if (gameState.phase === "VICTORY") {
+        gameState.logs.push("🎉 Game complete! You have mastered the spire! Refresh to play again.");
+      } else {
+        // Move to next level
+        gameState.phase = "COMBAT";
+        gameState.levelComplete = false;
+      }
 
       const updatedSession = await storage.updateGameSession(gameId, gameState);
       res.json(updatedSession);
@@ -273,6 +297,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid request data" });
       }
       res.status(500).json({ message: "Failed to select card" });
+    }
+  });
+
+  // Next level
+  app.post("/api/game/next-level", async (req, res) => {
+    try {
+      const { gameId } = NextLevelRequest.parse(req.body);
+      
+      const session = await storage.getGameSession(gameId);
+      if (!session) {
+        return res.status(404).json({ message: "Game not found" });
+      }
+
+      const gameState = session.gameState as GameState;
+      
+      if (gameState.phase !== "LEVEL_COMPLETE") {
+        return res.status(400).json({ message: "Cannot advance level outside of level complete phase" });
+      }
+
+      // Advance to next level
+      gameState.currentLevel += 1;
+      
+      // Create new enemy for the next level
+      const newEnemy = createEnemyForLevel(gameState.currentLevel);
+      gameState.enemy = newEnemy;
+      
+      // Reset player state for next level (optional healing)
+      gameState.player.health = Math.min(gameState.player.maxHealth, gameState.player.health + 10); // Small heal
+      gameState.player.energy = gameState.player.maxEnergy;
+      gameState.player.armor = 0; // Reset armor
+      
+      // Draw new hand
+      if (gameState.deck.length < 5) {
+        gameState.deck.push(...gameState.discardPile);
+        gameState.discardPile = [];
+        gameState.deck = shuffleArray(gameState.deck);
+      }
+      
+      const cardsToDraw = Math.min(5, gameState.deck.length);
+      gameState.hand = gameState.deck.splice(0, cardsToDraw);
+      
+      // Reset turn and phase
+      gameState.turn = 1;
+      gameState.phase = "COMBAT";
+      gameState.levelComplete = false;
+      
+      gameState.logs.push(`Level ${gameState.currentLevel}/3 - Face the ${newEnemy.name}!`);
+
+      const updatedSession = await storage.updateGameSession(gameId, gameState);
+      res.json(updatedSession);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data" });
+      }
+      res.status(500).json({ message: "Failed to advance to next level" });
     }
   });
 

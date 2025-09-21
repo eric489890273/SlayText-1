@@ -10,6 +10,9 @@ export function GameHeader({ gameState }: GameHeaderProps) {
       <h1 className="text-4xl font-bold mb-2 terminal-glow text-primary">SLAY THE SPIRE</h1>
       <p className="text-muted-foreground font-mono">Text-Based Card Battle System</p>
       <div className="mt-4 flex justify-center items-center gap-4">
+        <span className="px-3 py-1 bg-primary text-primary-foreground rounded font-bold" data-testid="text-current-level">
+          Level: {gameState.currentLevel}/{gameState.maxLevel}
+        </span>
         <span className="px-3 py-1 bg-secondary rounded text-secondary-foreground" data-testid="text-current-turn">
           Turn: {gameState.turn}
         </span>

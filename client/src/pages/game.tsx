@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { GameState, GameSession } from "@shared/schema";
+import { GameState, GameSession, NextLevelRequest } from "@shared/schema";
 import { GameHeader } from "@/components/game/GameHeader";
 import { EnemyArea } from "@/components/game/EnemyArea";
 import { PlayerArea } from "@/components/game/PlayerArea";
@@ -110,6 +110,30 @@ export default function Game() {
     },
   });
 
+  // Next level mutation
+  const nextLevelMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/game/next-level", {
+        gameId,
+      });
+      return response.json() as Promise<GameSession>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/game", gameId] });
+      toast({
+        title: "Next level!",
+        description: "Prepare to face a new enemy.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to advance to next level.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handlePlayCard = (cardId: string) => {
     playCardMutation.mutate(cardId);
   };
@@ -120,6 +144,10 @@ export default function Game() {
 
   const handleSelectCard = (cardId: string) => {
     selectCardMutation.mutate(cardId);
+  };
+
+  const handleNextLevel = () => {
+    nextLevelMutation.mutate();
   };
 
   // Auto-create new game on component mount
@@ -166,6 +194,7 @@ export default function Game() {
           gameState={gameState}
           onPlayCard={handlePlayCard}
           onSelectCard={handleSelectCard}
+          onNextLevel={handleNextLevel}
         />
 
         {/* Game Instructions */}
