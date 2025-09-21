@@ -53,7 +53,7 @@
 3. **啟動開發伺服器**  
 
    ```bash
-   npm run dev
+   npx tsx server/index.ts
 
 4.瀏覽器預覽
 
