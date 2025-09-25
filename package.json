@@ -4,14 +4,15 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "NODE_ENV=development tsx server/index.ts",
-    "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
-    "start": "NODE_ENV=production node dist/index.js",
+    "dev": "vite",
+    "build": "vite build && tsc -p tsconfig.functions.json",
+    "start": "node dist/index.js",
     "check": "tsc",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
-    "@cloudflare/express": "^0.0.3",
+    "hono": "^3.4.0",
+    "@hono/express": "^0.2.0",
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",
     "@neondatabase/serverless": "^0.10.4",
