@@ -1,0 +1,6 @@
+name = "slaytext-api"
+main = "functions/index.ts"
+compatibility_date = "2025-09-25"
+
+[site]
+bucket = "./dist"
